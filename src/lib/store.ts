@@ -6,6 +6,7 @@ import { offerDetails, productDetails } from "./catalog-details";
 import { consolidateStores } from "./consolidate-stores";
 import type { DemoState } from "./types";
 import { createBlobStateStore } from "./blob-store";
+import { fetchBlob } from "./netlify-fetch";
 
 const defaultPath = join(process.cwd(), "data", "state.json");
 let queue: Promise<unknown> = Promise.resolve();
@@ -36,17 +37,10 @@ function upgradeState(state: DemoState): DemoState {
 }
 
 async function netlifyStore() {
-  console.info("MRB storage: loading SDK");
   const { getStore } = await import("@netlify/blobs");
   const name = process.env.MRB_STORE;
   if (!name) throw new Error("Netlify demo store is not configured; rebuild the application");
-  console.info("MRB storage: opening", name);
-  return createBlobStateStore(getStore({ name, consistency: "strong", fetch: async (input, init) => {
-    console.info("MRB storage: request", init?.method, new URL(String(input)).hostname);
-    const response = await fetch(input, init);
-    console.info("MRB storage: response", response.status);
-    return response;
-  } }), upgradeState);
+  return createBlobStateStore(getStore({ name, consistency: "strong", fetch: fetchBlob }), upgradeState);
 }
 
 export async function readState(path?: string): Promise<DemoState> {
