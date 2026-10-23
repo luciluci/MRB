@@ -1,0 +1,40 @@
+.shopping-mode-panel{padding:30px;background:#eaf2ec;border:1px solid #cddfd3;border-radius:18px;margin-bottom:4px}
+.shopping-mode-panel h1{font-size:clamp(28px,3vw,38px);line-height:1.12;margin:0 0 10px;color:#0c3d31}
+.shopping-mode-panel>p{color:#526f61;font-size:14px;margin:0 0 24px;line-height:1.6}
+.shopping-mode-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.shopping-mode-card{position:relative;min-height:156px;display:flex;flex-wrap:wrap;align-content:flex-start;align-items:center;gap:14px;padding:22px 18px;border:2px solid #cbded2;border-radius:12px;background:#fff;color:#0c3d31;text-align:left;transition:background .15s,border-color .15s}
+.shopping-mode-card:hover{background:#f4f9f5;border-color:#739c83}
+.shopping-mode-card:focus-visible{outline:3px solid #8658ad;outline-offset:4px}
+.shopping-mode-icon{display:grid;place-items:center;width:36px;height:36px;font-size:25px;background:#edf4ed;border-radius:9px}
+.shopping-mode-copy{display:flex;flex-direction:column;gap:8px;width:100%}
+.shopping-mode-copy strong{font-size:22px;line-height:1.1;letter-spacing:-.025em}
+.shopping-mode-copy>span{font-size:12px;line-height:1.5}
+.shopping-mode-indicator{position:absolute;right:18px;top:25px;font-size:21px}
+.shopping-mode-card[aria-pressed=true]{background:#0c3d31;color:#fff;border-color:#0c3d31;box-shadow:0 5px 14px #0c3d3120}
+.shopping-mode-card[aria-pressed=true] .shopping-mode-icon{background:#ffffff18}
+.shopping-welcome{min-height:100svh;max-width:680px;margin:auto;background:#fff;display:flex;flex-direction:column;color:#0c3d31}
+.shopping-welcome-header{background:#0c3d31;color:#fff;padding:28px 24px 25px}
+.shopping-welcome-brand{display:flex;align-items:center;gap:11px;font-size:19px;letter-spacing:.02em;margin-bottom:24px}
+.shopping-welcome-brand>span{background:#d6edb5;color:#0c3d31;border-radius:10px;width:36px;height:36px;display:grid;place-items:center;font-size:23px;font-weight:900}
+.shopping-welcome-address{display:flex;flex-direction:column;gap:5px;font-size:12px;margin:0 0 20px;line-height:1.5}
+.shopping-welcome-address>span{color:#b9d2c4;font-size:11px}
+.shopping-welcome-address strong{font-weight:600;overflow-wrap:anywhere}
+.shopping-welcome-header label{display:block;font-size:12px;margin-bottom:9px}
+.shopping-welcome-header input{width:100%;height:48px;padding:12px 14px;font:inherit;font-size:13px;color:#163b30;background:#fff;border:1px solid #d4e4d8;border-radius:10px}
+.shopping-welcome-header input:focus-visible{outline:3px solid #d6edb5;outline-offset:3px}
+.shopping-welcome-choices{padding:28px 24px 18px}
+.shopping-welcome-choices h1{font-size:27px;line-height:1.2;margin:0 0 10px}
+.shopping-welcome-choices>p{font-size:13px;color:#5d7669;margin:0 0 22px}
+.shopping-welcome .shopping-mode-options{grid-template-columns:1fr;gap:13px}
+.shopping-welcome .shopping-mode-card{min-height:94px;flex-wrap:nowrap;align-content:center;gap:14px;padding:18px;background:#eaf2ec;border-color:transparent}
+.shopping-welcome .shopping-mode-card:hover{border-color:#739c83}
+.shopping-welcome .shopping-mode-copy{width:auto;padding-right:20px;gap:6px}
+.shopping-welcome .shopping-mode-copy strong{font-size:19px}
+.shopping-welcome .shopping-mode-icon{display:none}
+.shopping-welcome .shopping-mode-indicator{top:22px}
+.shopping-welcome .mode-fastest{background:#0c3d31;color:#fff}
+.shopping-welcome-choices .shopping-welcome-note{font-size:12px;line-height:1.6;margin:18px 0 0}
+.shopping-welcome-footer{display:flex;flex-direction:column;gap:8px;background:#f5edde;border-radius:12px;padding:18px;margin:auto 24px 24px;font-size:12px;line-height:1.5}
+.shopping-welcome-footer>span{color:#67766d;font-size:11px}
+@media(max-width:680px){.shopping-mode-panel{padding:20px 16px;border-radius:13px}.shopping-mode-panel h1{font-size:25px}.shopping-mode-panel>p{font-size:12px;margin-bottom:16px}.shopping-mode-options{gap:7px}.shopping-mode-card{padding:12px 9px;min-height:128px;gap:10px}.shopping-mode-copy strong{font-size:16px}.shopping-mode-copy>span{font-size:10px}.shopping-mode-icon{width:28px;height:28px;font-size:20px}.shopping-mode-indicator{right:9px;top:14px;font-size:17px}}
+@media(prefers-reduced-motion:reduce){.shopping-mode-card{transition:none}}
