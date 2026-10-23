@@ -1,0 +1,9 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Set MRB_STORAGE=netlify in the Netlify UI for all deploy contexts,
+# including the Functions scope. The Next.js adapter is installed automatically.

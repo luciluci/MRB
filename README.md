@@ -99,6 +99,14 @@ The customer address picker uses Iași sample addresses and browser geolocation.
 
 Run `npm test` for domain and API tests. Run `npm run build` for the production compile and TypeScript check.
 
+## Netlify deployment
+
+Import this repository into Netlify using the deployment branch. `netlify.toml` selects Node.js 22, `npm run build`, and `.next`; Netlify installs its Next.js adapter automatically.
+
+In Netlify's environment variables, set `MRB_STORAGE=netlify` for all deploy contexts and include the Functions scope. The hosted app uses Netlify Blobs with strong reads and conditional writes, so demo changes survive serverless invocations and deployments. Concurrent changes retry against the latest saved state, up to five attempts. Storage errors are surfaced instead of silently resetting the demonstration. Netlify supplies storage credentials; do not add tokens to this repository.
+
+The production store is `mrb-demo`; non-production contexts use separate `mrb-demo-<context>` stores. `next.config.ts` embeds this non-secret store name at build time because Netlify's `CONTEXT` variable is not available in Functions. The hosted demo starts with sample data; local saved state is not uploaded. All visitors share its demonstration state and may use the existing demo controls. Local development without `MRB_STORAGE=netlify` keeps `data/state.json` persistence. Explicit paths used by tests always select file storage.
+
 ## Before a live pilot
 
 Replace the local JSON state with a durable database such as Supabase Postgres/PostGIS, introduce real account permissions, ingest authorized branch-level stock, connect a payment provider, and build proper settlement/refund and operational support flows. Browser location works while the professional web app is active; native mobile is better suited to reliable background location.

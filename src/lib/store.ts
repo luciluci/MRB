@@ -5,6 +5,7 @@ import { createSeedState } from "./seed";
 import { offerDetails, productDetails } from "./catalog-details";
 import { consolidateStores } from "./consolidate-stores";
 import type { DemoState } from "./types";
+import { createBlobStateStore } from "./blob-store";
 
 const defaultPath = join(process.cwd(), "data", "state.json");
 let queue: Promise<unknown> = Promise.resolve();
@@ -34,19 +35,30 @@ function upgradeState(state: DemoState): DemoState {
   });
 }
 
-export async function readState(path = defaultPath): Promise<DemoState> {
-  try { return upgradeState(JSON.parse(await readFile(path, "utf8")) as DemoState); }
+async function netlifyStore() {
+  const { getStore } = await import("@netlify/blobs");
+  const name = process.env.MRB_STORE;
+  if (!name) throw new Error("Netlify demo store is not configured; rebuild the application");
+  return createBlobStateStore(getStore({ name, consistency: "strong" }), upgradeState);
+}
+
+export async function readState(path?: string): Promise<DemoState> {
+  if (path === undefined && process.env.MRB_STORAGE === "netlify") return (await netlifyStore()).read();
+  // Runtime local data is not a build asset and must not be bundled for Netlify.
+  try { return upgradeState(JSON.parse(await readFile(/*turbopackIgnore: true*/ path ?? defaultPath, "utf8")) as DemoState); }
   catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return createSeedState();
     throw error;
   }
 }
 
-export function updateState(action: DemoAction, path = defaultPath): Promise<DemoState> {
+export function updateState(action: DemoAction, path?: string): Promise<DemoState> {
+  if (path === undefined && process.env.MRB_STORAGE === "netlify") return netlifyStore().then(store => store.update(action));
+  const filePath = path ?? defaultPath;
   const pending = queue.then(async () => {
-    const next = applyAction(await readState(path), action);
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, JSON.stringify(next, null, 2));
+    const next = applyAction(await readState(filePath), action);
+    await mkdir(dirname(filePath), { recursive: true });
+    await writeFile(filePath, JSON.stringify(next, null, 2));
     return next;
   });
   queue = pending.catch(() => undefined);

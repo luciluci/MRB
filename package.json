@@ -9,6 +9,7 @@
     "test": "tsx --test src/lib/*.test.ts"
   },
   "dependencies": {
+    "@netlify/blobs": "^11.1.6",
     "leaflet": "^1.9.4",
     "next": "16.4.2",
     "react": "19.2.0",
