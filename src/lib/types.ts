@@ -18,7 +18,7 @@ export type Store = Coordinates & {
   id: string; name: string; category: Category; address: string; radiusKm: number;
   prepMinutes: number; hours: Hours; accent?: string; mark?: string;
   acceptingOrders?: boolean; acceptedPaymentMethods?: PaymentMethod[];
-  settingsRevision?: number;
+  settingsRevision?: number; fulfillmentMode?: "courier_shops" | "merchant_prepared";
 };
 export type Offer = {
   id: string; productId: string; storeId: string; price: number; stock: "in" | "out"; updatedAt: string;
@@ -32,12 +32,12 @@ export type Order = {
   id: string; storeId: string; items: OrderItem[]; customerAddress: string;
   customerLat: number; customerLng: number; status: OrderStatus; subtotal: number;
   deliveryFee: number; platformFee: number; total: number; createdAt: string;
-  courierId: string | null;
+  courierId: string | null; tracking?: OrderTracking;
 };
-export type Courier = Coordinates & { id: string; name: string; online: boolean; lastLocationAt: string | null; completed: number };
+export type Courier = Coordinates & { id: string; name: string; online: boolean; lastLocationAt: string | null; completed: number; maxUnits?: number; maxActiveRoutes?: number };
 export type DemoState = {
   products: Product[]; stores: Store[]; offers: Offer[]; orders: Order[];
-  courier: Courier; customer: Address; demoTime: string;
+  courier: Courier; customer: Address; demoTime: string; couriers?: Courier[]; operations?: Record<string, string>;
 };
 export type OrderAction =
   | { type: "merchantAccept" }
@@ -46,3 +46,30 @@ export type OrderAction =
   | { type: "courierAccept"; courierId: string }
   | { type: "courierPickup" }
   | { type: "courierDeliver" };
+
+export type ItemSnapshot = OrderItem & { name: string; emoji: string; color?: string; addedBy?: string };
+export type StopProgress = "upcoming" | "heading" | "shopping" | "closed" | "collected" | "delivered" | "cancelled";
+export type PickupStop = {
+  id: string; storeId: string; storeName: string; routeId: string; items: ItemSnapshot[];
+  fulfillmentMode: "courier_shops" | "merchant_prepared";
+  preparation: "pending" | "accepted" | "ready" | "rejected";
+  progress: StopProgress; additionsOpen: boolean; revision: number;
+};
+export type CollectionRoute = {
+  id: string; stopIds: string[]; courierId: string | null;
+  status: "awaiting" | "acknowledged" | "active" | "on_way" | "delivered" | "cancelled";
+  deliveryFee: number; etaMinutes: number; extra: boolean;
+};
+export type AdditionQuote = {
+  fulfillmentMode: "courier_shops" | "merchant_prepared";
+  id: string; storeId: string; items: ItemSnapshot[]; targetStopId: string | null; stopRevision: number | null;
+  subtotal: number; platformFee: number; deliveryFee: number; total: number; etaMinutes: number;
+  courierId: string | null; customerApproved: boolean; courierApproved: boolean; merchantApproved: boolean;
+  status: "quoted" | "pending" | "accepted" | "declined" | "expired" | "cancelled" | "unavailable";
+  reason?: string; createdAt: string; expiresAt: string; declinedCourierIds: string[];
+};
+export type OrderTracking = {
+  version: 2; stops: PickupStop[]; routes: CollectionRoute[]; additions: AdditionQuote[];
+  events: { id: string; at: string; text: string }[];
+  adjustments: { at: string; amount: number; reason: string }[];
+};

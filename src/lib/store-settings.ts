@@ -5,6 +5,7 @@ export type StoreSettings = {
   baseRevision: number;
   hours: Hours;
   prepMinutes: number;
+  fulfillmentMode?: "courier_shops" | "merchant_prepared";
   acceptingOrders: boolean;
   acceptedPaymentMethods: PaymentMethod[] | null;
   offers: { offerId: string; stock: "in" | "out"; quantityAvailable: number | null; stockConfidence: StockConfidence }[];
@@ -13,6 +14,7 @@ export type StoreSettings = {
 export function updateStoreSettings(state: DemoState, input: StoreSettings): DemoState {
   const store = state.stores.find(store => store.id === input.storeId);
   if (!store) throw new Error("Store not found");
+  if (input.fulfillmentMode !== undefined && !["courier_shops", "merchant_prepared"].includes(input.fulfillmentMode)) throw new Error("Invalid fulfillment mode");
   if (!Number.isSafeInteger(input.baseRevision) || input.baseRevision !== (store.settingsRevision ?? 0)) throw new Error("Store settings changed since this page was opened. Reload the saved settings before editing again.");
   if (!Number.isInteger(input.prepMinutes) || input.prepMinutes < 0 || input.prepMinutes > 240) throw new Error("Preparation time must be 0–240 minutes");
   if (typeof input.acceptingOrders !== "boolean") throw new Error("Choose whether the store is accepting orders");
@@ -48,6 +50,7 @@ export function updateStoreSettings(state: DemoState, input: StoreSettings): Dem
     ...state,
     stores: state.stores.map(current => current.id === store.id ? {
       ...current, hours, prepMinutes: input.prepMinutes, acceptingOrders: input.acceptingOrders, settingsRevision: (store.settingsRevision ?? 0) + 1,
+      ...(input.fulfillmentMode ? { fulfillmentMode: input.fulfillmentMode } : {}),
       acceptedPaymentMethods: input.acceptedPaymentMethods === null ? undefined : [...new Set(input.acceptedPaymentMethods)],
     } : current),
     offers: state.offers.map(offer => {

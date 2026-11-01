@@ -15,11 +15,11 @@ test("checkout creates one priced order for one store", () => {
   assert.equal(state.orders.length, 0);
 });
 
-test("checkout refuses mixed stores and unavailable offers", () => {
+test("checkout accepts mixed stores and refuses unavailable offers", () => {
   const state = createSeedState();
-  assert.throws(() => applyAction(state, { type: "placeOrder", items: [
+  assert.doesNotThrow(() => applyAction(state, { type: "placeOrder", items: [
     { offerId: "iasi-urban-grocer-milk", quantity: 1 }, { offerId: "iasi-bean-bowl-coffee", quantity: 1 },
-  ] }), /one store/);
+  ] }));
   assert.throws(() => applyAction(state, { type: "placeOrder", items: [
     { offerId: "iasi-urban-grocer-detergent", quantity: 1 },
   ] }), /unavailable/);
@@ -74,7 +74,8 @@ test("customer, merchant, and professional complete one delivery", () => {
   const id = state.orders[0].id;
   for (const type of ["merchantAccept", "merchantReady"] as const) state = applyAction(state, { type, orderId: id });
   state = applyAction(state, { type: "setCourierOnline", online: true });
-  for (const type of ["courierAccept", "courierPickup", "courierDeliver"] as const) state = applyAction(state, { type, orderId: id });
+  state = applyAction(state, { type: "courierAccept", orderId: id });
+  for (const step of ["head", "arrive", "finish", "collect", "deliver"] as const) state = applyAction(state, { type: "routeStep", orderId: id, routeId: state.orders[0].tracking!.routes[0].id, courierId: state.courier.id, step });
   assert.equal(state.orders[0].status, "delivered");
   assert.equal(state.orders[0].courierId, state.courier.id);
   assert.equal(state.courier.completed, 1);

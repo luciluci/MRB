@@ -4,6 +4,7 @@ import Link from "next/link";
 import LocationMap from "@/components/LocationMap";
 import { useEffect, useState, type FormEvent } from "react";
 import { storeStatus } from "@/lib/domain";
+import { fulfillment } from "@/lib/order-flow";
 import type { DemoState, Hours, PaymentMethod, StockConfidence } from "@/lib/types";
 import type { StoreSettings } from "@/lib/store-settings";
 import "./store-details.css";
@@ -14,6 +15,7 @@ function draftFor(state: DemoState, storeId: string): StoreSettings {
   return {
     storeId, baseRevision: store.settingsRevision ?? 0, hours: structuredClone(store.hours), prepMinutes: store.prepMinutes,
     acceptingOrders: store.acceptingOrders !== false,
+    fulfillmentMode: fulfillment(store),
     acceptedPaymentMethods: store.acceptedPaymentMethods ? [...store.acceptedPaymentMethods] : null,
     offers: state.offers.filter(offer => offer.storeId === storeId).map(offer => ({
       offerId: offer.id, stock: offer.stock, quantityAvailable: offer.quantityAvailable ?? null,
@@ -80,6 +82,8 @@ export default function StoreDetails({ initialState, storeId }: { initialState: 
       <fieldset disabled={busy || !hydrated} className="store-form-fields">
         <section className="store-settings-card">
           <h2>Readiness and payment</h2>
+          <label className="store-field">Fulfillment mode<select value={draft.fulfillmentMode} onChange={event => setDraft(current => ({ ...current, fulfillmentMode: event.target.value as StoreSettings["fulfillmentMode"] }))}><option value="courier_shops">Courier shops and checks out</option><option value="merchant_prepared">Shop prepares; courier collects</option></select></label>
+          <p>Applies to new pickups. Existing pickups retain their agreed preparation flow.</p>
           <label className="store-check"><input type="checkbox" checked={draft.acceptingOrders} onChange={event => { const checked = event.target.checked; setDraft(current => ({ ...current, acceptingOrders: checked })); }} />Accepting new orders</label>
           <p>Pause new orders without changing the weekly schedule. Existing orders remain available to fulfil.</p>
           <label className="store-field">Preparation time (minutes)<input type="number" min={0} max={240} step={1} required value={draft.prepMinutes} onChange={event => { const value = Number(event.target.value); setDraft(current => ({ ...current, prepMinutes: value })); }} /></label>
