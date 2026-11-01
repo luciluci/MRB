@@ -32,7 +32,10 @@ test("older Bucharest stores move to Iași while retaining settings, offers and 
   try {
     await writeFile(path, JSON.stringify(legacy));
     const migrated = await readState(path);
-    assert.deepEqual(migrated.orders, [{ ...legacy.orders[0], storeId: "iasi-volt-lab", items: [{ ...legacy.orders[0].items[0], offerId: "iasi-volt-lab-charger" }] }]);
+    const { tracking, ...legacyFields } = migrated.orders[0];
+    assert.deepEqual(legacyFields, { ...legacy.orders[0], storeId: "iasi-volt-lab", items: [{ ...legacy.orders[0].items[0], offerId: "iasi-volt-lab-charger" }] });
+    assert.equal(tracking?.stops[0].items[0].unitPrice, 72);
+    assert.equal(tracking?.stops[0].storeId, "iasi-volt-lab");
     assert.deepEqual(migrated.offers.find(o => o.id === "iasi-volt-lab-charger"), { ...legacy.offers[0], id: "iasi-volt-lab-charger", storeId: "iasi-volt-lab" });
     for (const oldStore of legacy.stores) {
       const destination = createSeedState().stores.find(s => s.id === `iasi-${oldStore.id}`)!;

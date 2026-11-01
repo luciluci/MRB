@@ -3,6 +3,7 @@ import test from "node:test";
 import { createBlobStateStore, type SnapshotStore } from "./blob-store";
 import { createSeedState } from "./seed";
 import type { DemoState } from "./types";
+import { migrateOrders } from "./order-flow";
 
 // The external storage boundary is simulated; all state transitions use production code.
 function memoryStore(): SnapshotStore {
@@ -85,4 +86,38 @@ test("conditional write without a resulting ETag is not reported as saved", asyn
     async setJSON() { return { modified: true, etag: "" }; },
   }, state => state);
   await assert.rejects(store.update({ type: "reset" }), /confirm.*write/i);
+});
+
+test("concurrent duplicate checkout submits create exactly one order", async () => {
+  const storage = memoryStore();
+  const a = createBlobStateStore(storage, migrateOrders);
+  const b = createBlobStateStore(storage, migrateOrders);
+  const command = { type: "placeOrder" as const, operationId: "checkout-concurrent", items: [{ offerId: "iasi-urban-grocer-milk", quantity: 1 }] };
+  await Promise.all([a.update(command), b.update(command)]);
+  assert.equal((await a.read()).orders.length, 1);
+});
+
+test("concurrent cutoff and addition acceptance never reopen a closed pickup or silently add a fee", async () => {
+  const storage = memoryStore();
+  const a = createBlobStateStore(storage, migrateOrders);
+  const b = createBlobStateStore(storage, migrateOrders);
+  let s = await a.update({ type: "placeOrder", operationId: "checkout-cutoff", items: [{ offerId: "iasi-urban-grocer-milk", quantity: 1 }] });
+  const orderId = s.orders[0].id;
+  const routeId = s.orders[0].tracking!.routes[0].id;
+  await a.update({ type: "configureCourier", courierId: "courier-alex", online: true, maxUnits: 60, maxActiveRoutes: 2 });
+  for (const step of ["acknowledge", "head", "arrive"] as const) await a.update({ type: "routeStep", orderId, routeId, courierId: "courier-alex", step });
+  s = await a.update({ type: "quoteAddition", operationId: "quote-race", orderId, items: [{ offerId: "iasi-urban-grocer-bread", quantity: 1 }] });
+  const quoteId = s.orders[0].tracking!.additions[0].id;
+  const originalFee = s.orders[0].deliveryFee;
+  await a.update({ type: "decideAddition", orderId, quoteId, role: "customer", decision: "approve" });
+  await Promise.allSettled([
+    a.update({ type: "routeStep", orderId, routeId, courierId: "courier-alex", step: "finish" }),
+    b.update({ type: "decideAddition", orderId, quoteId, role: "courier", actorId: "courier-alex", decision: "approve" }),
+  ]);
+  const order = (await a.read()).orders[0];
+  assert.equal(order.tracking!.stops[0].progress, "closed");
+  assert.equal(order.deliveryFee, originalFee);
+  const addition = order.tracking!.additions[0];
+  assert.ok(["accepted", "expired"].includes(addition.status));
+  assert.equal(order.items.some(i => i.offerId.endsWith("bread")), addition.status === "accepted");
 });

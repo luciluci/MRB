@@ -7,6 +7,7 @@ import { consolidateStores } from "./consolidate-stores";
 import type { DemoState } from "./types";
 import { createBlobStateStore } from "./blob-store";
 import { fetchBlob } from "./netlify-fetch";
+import { migrateOrders } from "./order-flow";
 
 const defaultPath = join(process.cwd(), "data", "state.json");
 let queue: Promise<unknown> = Promise.resolve();
@@ -27,13 +28,13 @@ function upgradeState(state: DemoState): DemoState {
       ? { ...store, address: destination.address, lat: destination.lat, lng: destination.lng }
       : store;
   });
-  return consolidateStores({
+  return migrateOrders(consolidateStores({
     ...state,
     products: addMissingById(state.products.map(product => ({ ...productDetails[product.id], ...product })), seed.products),
     stores: addMissingById(stores, seed.stores),
     offers: addMissingById(state.offers.map(offer => ({ ...offerDetails[offer.id], ...offer })), seed.offers),
     customer: state.customer.address === "Piața Universității, București" ? seed.customer : state.customer,
-  });
+  }));
 }
 
 async function netlifyStore() {
@@ -48,7 +49,7 @@ export async function readState(path?: string): Promise<DemoState> {
   // Runtime local data is not a build asset and must not be bundled for Netlify.
   try { return upgradeState(JSON.parse(await readFile(/*turbopackIgnore: true*/ path ?? defaultPath, "utf8")) as DemoState); }
   catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return createSeedState();
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return migrateOrders(createSeedState());
     throw error;
   }
 }

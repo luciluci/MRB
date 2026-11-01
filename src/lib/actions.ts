@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { haversineKm, listOffers, transitionOrder } from "./domain";
+import { applyFlow, migrateOrders, placeTrackedOrder, type FlowAction } from "./order-flow";
+
 import { createSeedState } from "./seed";
 import { updateStoreSettings, type StoreSettings } from "./store-settings";
 import type { DemoState, OrderAction } from "./types";
 
-export type DemoAction =
+export type DemoAction = ({ operationId?: string } & (
+  | FlowAction
   | ({ type: "updateStoreSettings" } & StoreSettings)
   | { type: "reset" }
   | { type: "setDemoTime"; iso: string }
@@ -14,12 +16,13 @@ export type DemoAction =
   | { type: "prepareDemoCourier" }
   | { type: "placeOrder"; items: { offerId: string; quantity: number }[] }
   | ({ orderId: string } & Exclude<OrderAction, { type: "courierAccept" }>)
-  | { type: "courierAccept"; orderId: string };
+  | { type: "courierAccept"; orderId: string }));
 
-const money = (value: number) => Math.round(value * 100) / 100;
+
 const finiteCoordinate = (lat: number, lng: number) => Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
 
-export function applyAction(state: DemoState, action: DemoAction): DemoState {
+function applyLegacyAction(state: DemoState, action: DemoAction): DemoState {
+  if (action.type === "configureCourier" || action.type === "routeStep" || action.type === "merchantStep" || action.type === "quoteAddition" || action.type === "decideAddition") return applyFlow(state, action as FlowAction, action.operationId ?? randomUUID());
   if (action.type === "reset") return createSeedState();
   if (action.type === "updateStoreSettings") return updateStoreSettings(state, action);
   if (action.type === "setDemoTime") {
@@ -40,51 +43,32 @@ export function applyAction(state: DemoState, action: DemoAction): DemoState {
     const pickup = state.stores.find(s => s.id === currentOrder?.storeId) ?? state.stores[0];
     return { ...state, courier: { ...state.courier, online: true, lat: pickup.lat, lng: pickup.lng, lastLocationAt: state.demoTime } };
   }
-  if (action.type === "placeOrder") {
-    if (!Array.isArray(action.items) || action.items.length === 0) throw new Error("Add an item before checkout");
-    const offers = action.items.map(item => {
-      const offer = state.offers.find(o => o.id === item.offerId);
-      if (!offer) throw new Error("Offer not found");
-      if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 20) throw new Error("Quantity must be 1 to 20");
-      return offer;
-    });
-    if (new Set(offers.map(offer => offer.storeId)).size !== 1) throw new Error("An order can contain items from only one store");
-    const listings = listOffers(state.products, offers, state.stores, state.customer, new Date(state.demoTime));
-    if (listings.some(listing => !listing.available)) throw new Error("One or more offers are unavailable at this address and time");
-    const quantities = new Map<string, number>();
-    for (const item of action.items) quantities.set(item.offerId, (quantities.get(item.offerId) ?? 0) + item.quantity);
-    for (const offer of offers) {
-      const quantity = quantities.get(offer.id)!;
-      if (quantity > 20 || (offer.quantityAvailable != null && quantity > offer.quantityAvailable)) {
-        throw new Error("Requested quantity exceeds available stock or the 20-item limit");
-      }
-    }
-    const store = state.stores.find(s => s.id === offers[0].storeId)!;
-    const subtotal = money(action.items.reduce((sum, item, index) => sum + item.quantity * offers[index].price, 0));
-    const deliveryFee = 8 + Math.ceil(haversineKm(store, state.customer) * 2);
-    const platformFee = money(subtotal * 0.04);
-    return { ...state, orders: [{
-      id: `MRB-${randomUUID().slice(0, 6).toUpperCase()}`, storeId: store.id,
-      items: action.items.map((item, index) => ({ offerId: item.offerId, quantity: item.quantity, unitPrice: offers[index].price })),
-      customerAddress: state.customer.address, customerLat: state.customer.lat, customerLng: state.customer.lng,
-      status: "placed", subtotal, deliveryFee, platformFee, total: money(subtotal + deliveryFee + platformFee),
-      createdAt: state.demoTime, courierId: null,
-    }, ...state.orders] };
+  if (action.type === "placeOrder") return placeTrackedOrder(state, action.items, action.operationId ?? randomUUID());
+  const order = state.orders.find(o => o.id === action.orderId);
+  if (!order) throw new Error("Order not found");
+  const stop = order.tracking!.stops[0];
+  const route = order.tracking!.routes[0];
+  const merchantSteps = { merchantAccept: "accept", merchantReject: "reject", merchantReady: "ready" } as const;
+  if (action.type === "merchantAccept" || action.type === "merchantReject" || action.type === "merchantReady") {
+    if (order.tracking!.stops.length > 1) throw new Error("Choose a specific shop pickup");
+    return applyFlow(state, { type: "merchantStep", orderId: order.id, stopId: stop.id, storeId: stop.storeId, step: merchantSteps[action.type] }, action.operationId ?? randomUUID());
   }
-
-  const orderIndex = state.orders.findIndex(order => order.id === action.orderId);
-  if (orderIndex < 0) throw new Error("Order not found");
-  const order = state.orders[orderIndex];
-  if (action.type === "courierAccept") {
-    if (!state.courier.online) throw new Error("Go online before accepting a mission");
-    const store = state.stores.find(s => s.id === order.storeId)!;
-    if (haversineKm(state.courier, store) > 6) throw new Error("Mission is outside courier pickup range");
-    if (!state.courier.lastLocationAt || Math.abs(Date.parse(state.demoTime) - Date.parse(state.courier.lastLocationAt)) > 30 * 60_000) throw new Error("Refresh courier location to accept this mission");
-    if (state.orders.some(o => o.courierId === state.courier.id && ["assigned", "picked_up"].includes(o.status))) throw new Error("Complete the active mission first");
-  }
-  const nextOrder = transitionOrder(order, action.type === "courierAccept"
-    ? { type: "courierAccept", courierId: state.courier.id }
-    : { type: action.type } as OrderAction);
-  const orders = state.orders.map((current, index) => index === orderIndex ? nextOrder : current);
-  return { ...state, orders, courier: action.type === "courierDeliver" ? { ...state.courier, completed: state.courier.completed + 1 } : state.courier };
+  if (action.type === "courierAccept" || action.type === "courierPickup" || action.type === "courierDeliver") return applyFlow(state, { type: "routeStep", orderId: order.id, routeId: route.id, courierId: state.courier.id, step: action.type === "courierAccept" ? "acknowledge" : action.type === "courierPickup" ? "collect" : "deliver" }, action.operationId ?? randomUUID());
+  throw new Error("Unknown action");
 }
+
+export function applyAction(input: DemoState, action: DemoAction): DemoState {
+  if (!action || typeof action.type !== "string") throw new Error("Invalid action");
+  if (action.operationId !== undefined && (typeof action.operationId !== "string" || !/^[a-zA-Z0-9_-]{1,100}$/.test(action.operationId))) throw new Error("Invalid operation ID");
+  const state = migrateOrders(input);
+  const key = action.operationId;
+  const fingerprint = JSON.stringify(action);
+  if (key && state.operations?.[key]) {
+    if (state.operations[key] !== fingerprint) throw new Error("Operation ID already used for another action");
+    return state;
+  }
+  let next = migrateOrders(applyLegacyAction(state, action));
+  if (["setCourierOnline", "setCourierLocation", "prepareDemoCourier"].includes(action.type)) next = { ...next, couriers: next.couriers!.map(c => c.id === next.courier.id ? next.courier : c) };
+  return key ? { ...next, operations: { ...next.operations, [key]: fingerprint } } : next;
+}
+

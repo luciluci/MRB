@@ -37,6 +37,10 @@ export function consolidateStores(state: DemoState): DemoState {
       ...order,
       storeId: canonicalStoreId(order.storeId),
       items: order.items.map(item => ({ ...item, offerId: canonicalOfferId(item.offerId) })),
+      tracking: order.tracking ? { ...order.tracking,
+        stops: order.tracking.stops.map(stop => ({ ...stop, storeId: canonicalStoreId(stop.storeId), items: stop.items.map(item => ({ ...item, offerId: canonicalOfferId(item.offerId) })) })),
+        additions: order.tracking.additions.map(q => ({ ...q, storeId: canonicalStoreId(q.storeId), items: q.items.map(item => ({ ...item, offerId: canonicalOfferId(item.offerId) })) })),
+      } : undefined,
     })),
   };
 }
