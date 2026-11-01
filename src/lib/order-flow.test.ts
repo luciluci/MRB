@@ -331,3 +331,15 @@ test("reset response is immediately compatible with professional and order views
   assert.equal(s.orders.length, 0);
 });
 
+test("legacy ready and assigned shopping visits remain open to free additions until checkout", () => {
+  for (const status of ["ready", "assigned"] as const) {
+    let s = applyAction(createSeedState(), { type: "placeOrder", items: [{ offerId: "iasi-urban-grocer-milk", quantity: 1 }] });
+    delete s.orders[0].tracking;
+    s.orders[0].status = status;
+    s.orders[0].courierId = status === "assigned" ? s.courier.id : null;
+    s = quote(s);
+    assert.equal(tracked(s).additions[0].deliveryFee, 0);
+    assert.equal(tracked(s).stops[0].progress, "upcoming");
+  }
+});
+

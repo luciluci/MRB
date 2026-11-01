@@ -39,7 +39,7 @@ export function migrateOrders(state: DemoState): DemoState {
     const stop: PickupStop = { id: `${o.id}-stop-1`, routeId, storeId: o.storeId, storeName: store?.name ?? o.storeId,
       items: o.items.map(x => snapshot(state, x)), fulfillmentMode: store ? fulfillment(store) : "merchant_prepared",
       preparation: o.status === "placed" ? "pending" : o.status === "rejected" ? "rejected" : o.status === "accepted" ? "accepted" : "ready",
-      progress, additionsOpen: ["placed", "accepted"].includes(o.status), revision: 0 };
+      progress, additionsOpen: ["placed", "accepted"].includes(o.status) || (!!store && fulfillment(store) === "courier_shops" && ["ready", "assigned"].includes(o.status)), revision: 0 };
     const route: CollectionRoute = { id: routeId, stopIds: [stop.id], courierId: o.courierId,
       status: o.status === "delivered" ? "delivered" : o.status === "rejected" ? "cancelled" : o.status === "picked_up" ? "on_way" : o.courierId ? "acknowledged" : "awaiting",
       deliveryFee: o.deliveryFee, etaMinutes: 30, extra: false };
